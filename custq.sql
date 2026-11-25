@@ -1,0 +1,101 @@
+-- MySQL dump 10.13  Distrib 8.4.9, for Win64 (x86_64)
+--
+-- Host: localhost    Database: custq
+-- ------------------------------------------------------
+-- Server version	8.4.9
+
+/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
+/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
+/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
+/*!50503 SET NAMES utf8mb4 */;
+/*!40103 SET @OLD_TIME_ZONE=@@TIME_ZONE */;
+/*!40103 SET TIME_ZONE='+00:00' */;
+/*!40014 SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=0 */;
+/*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;
+/*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;
+/*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
+
+--
+-- Select database
+--
+
+CREATE DATABASE IF NOT EXISTS `custq` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE `clientqDb`;
+
+--
+-- Table structure for table `staff`
+--
+
+DROP TABLE IF EXISTS `staff`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `staff` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `name` varchar(100) NOT NULL,
+  `goes_by` varchar(50) NOT NULL,
+  `position` varchar(100) NOT NULL,
+  `experience` varchar(50) NOT NULL,
+  `additional_info` text,
+  `profile_pic` varchar(255) DEFAULT NULL,
+  `is_active` tinyint(1) DEFAULT '1',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `username` varchar(50) DEFAULT NULL,
+  `password_hash` varchar(255) DEFAULT NULL,
+  `role` enum('owner','staff') DEFAULT 'staff',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `username` (`username`)
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `staff`
+--
+
+LOCK TABLES `staff` WRITE;
+/*!40000 ALTER TABLE `staff` DISABLE KEYS */;
+INSERT INTO `staff` VALUES (1,'Marcus Johnson','Marcus','Barber','8 yrs','Specializes in classic cuts and fades. Precision line-ups.',NULL,1,'2026-05-30 16:44:40','mjohnson','$2y$12$L5GCSenANIqKbsXoC9IkKu9LCIeDr0XMvDVC1WKEmIGF6I.rMqj2.','staff'),(2,'Darnell Williams','D-Will','Master barber, owner','14 yrs','Favorite cut is high-top fade. Always shave beards with a razor.',NULL,1,'2026-05-30 16:44:40','dwilliams','$2y$12$L5GCSenANIqKbsXoC9IkKu9LCIeDr0XMvDVC1WKEmIGF6I.rMqj2.','owner'),(3,'Andre Thompson','Dre','Barber','5 yrs','Specializes in modern styles and beard grooming.',NULL,1,'2026-05-30 16:44:40','athompson','$2y$12$L5GCSenANIqKbsXoC9IkKu9LCIeDr0XMvDVC1WKEmIGF6I.rMqj2.','staff'),(4,'Keisha Robinson','Keisha','Stylist','10 yrs','Dreads. Twists. Corn rows. Braids.',NULL,1,'2026-05-30 16:44:40','krobinson','$2y$12$L5GCSenANIqKbsXoC9IkKu9LCIeDr0XMvDVC1WKEmIGF6I.rMqj2.','staff');
+/*!40000 ALTER TABLE `staff` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `clients`
+--
+
+DROP TABLE IF EXISTS `clients`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `clients` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `name` varchar(100) NOT NULL,
+  `email` varchar(255) NOT NULL,
+  `no_in_party` int NOT NULL DEFAULT '1',
+  `staff_id` int NOT NULL,
+  `confirmation_code` varchar(6) NOT NULL,
+  `sign_in_time` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `is_active` tinyint(1) DEFAULT '1',
+  PRIMARY KEY (`id`),
+  KEY `staff_id` (`staff_id`),
+  CONSTRAINT `clients_ibfk_1` FOREIGN KEY (`staff_id`) REFERENCES `staff` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `clients`
+--
+
+LOCK TABLES `clients` WRITE;
+/*!40000 ALTER TABLE `clients` DISABLE KEYS */;
+INSERT INTO `clients` VALUES (1,'joe','qb14_cj@msn.com',2,2,'ZRMRMN','2026-05-30 16:46:07',0),(2,'Test Client','qb14_cj@yahoo.com',1,2,'I9NWT1','2026-05-30 17:14:59',0),(3,'Test Client','qb14_cj@yahoo.com',1,2,'QXIC2P','2026-05-30 17:33:05',0),(4,'seth','qb14_cj@msn.com',2,3,'CTDDCD','2026-05-30 17:35:19',1),(5,'TestUser','test@test.com',1,2,'7YYIM0','2026-05-30 18:26:31',0),(6,'tom','qb14_cj@msn.com',2,3,'K6TNOK','2026-05-30 18:29:45',1),(7,'pete','qb14_cj@msn.com',1,2,'BO0AL3','2026-05-30 18:32:33',0);
+/*!40000 ALTER TABLE `clients` ENABLE KEYS */;
+UNLOCK TABLES;
+/*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
+
+/*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
+/*!40014 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS */;
+/*!40014 SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS */;
+/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
+/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
+/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
+/*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
+
+-- Dump completed on 2026-06-13 12:22:14

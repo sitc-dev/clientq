@@ -1,0 +1,7 @@
+.git
+.playwright-mcp
+.env
+logs/*.log
+owner_credential.txt
+custq.sql
+custq.sql.bak

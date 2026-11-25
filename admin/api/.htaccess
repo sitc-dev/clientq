@@ -4,6 +4,10 @@ Options -Indexes
 # Enable rewrite engine
 RewriteEngine On
 
+# Redirect .php URLs to clean admin API URLs
+RewriteCond %{THE_REQUEST} \s/+admin/api/[^?\s]+\.php[\s?] [NC]
+RewriteRule ^(.+)\.php$ /admin/api/$1 [R=301,L,NE]
+
 # Remove .php extension for API endpoints
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteCond %{REQUEST_FILENAME}.php -f

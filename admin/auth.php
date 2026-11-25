@@ -4,25 +4,25 @@
  * Include at the top of every admin page.
  */
 session_start();
-require_once __DIR__ . '/../config.php';
+require_once __DIR__ . '/../src/php/config.php';
+
+$tenant = requireTenant();
 
 function requireAuth() {
-    if (!isset($_SESSION['staff_id'])) {
+    if (getSessionStaff() === null) {
+        session_unset();
         header('Location: login');
         exit;
     }
 }
 
 function getLoggedInStaff() {
-    if (!isset($_SESSION['staff_id'])) return null;
-    $db = getDB();
-    $stmt = $db->prepare("SELECT * FROM staff WHERE id = :id AND is_active = 1");
-    $stmt->execute([':id' => $_SESSION['staff_id']]);
-    return $stmt->fetch();
+    return getSessionStaff();
 }
 
 function isOwner() {
-    return isset($_SESSION['role']) && $_SESSION['role'] === 'owner';
+    $staff = getSessionStaff();
+    return $staff !== null && $staff['role'] === 'owner';
 }
 
 function requireOwner() {
@@ -30,5 +30,14 @@ function requireOwner() {
     if (!isOwner()) {
         http_response_code(403);
         die('Access denied. Owner privileges required.');
+    }
+
+}
+
+function requireStaffAdministrator() {
+    requireAuth();
+    if (!staffCanManageUsers(getLoggedInStaff())) {
+        http_response_code(403);
+        die('Access denied. Owner or Manager access is required.');
     }
 }

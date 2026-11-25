@@ -1,0 +1,33 @@
+{
+  "mcpServers": {
+    "playwright": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@playwright/mcp@latest"
+      ],
+      "tools": [
+        "*"
+      ]
+    },
+    "mysql": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@benborla29/mcp-server-mysql"
+      ],
+      "env": {
+        "MYSQL_HOST": "${COPILOT_MCP_MYSQL_HOST:-127.0.0.1}",
+        "MYSQL_PORT": "${COPILOT_MCP_MYSQL_PORT:-3306}",
+        "MYSQL_USER": "${COPILOT_MCP_MYSQL_USER:-clientq}",
+        "MYSQL_PASS": "${COPILOT_MCP_MYSQL_PASS}",
+        "MYSQL_DB": "${COPILOT_MCP_MYSQL_DB:-clientq}"
+      },
+      "tools": [
+        "mysql_query"
+      ]
+    }
+  }
+}

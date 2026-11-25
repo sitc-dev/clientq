@@ -1,16 +1,18 @@
 <?php
 /**
  * API: Submit client sign-in
- * POST JSON: { name, email, staff_id, no_in_party }
+ * POST JSON: { name, phone, staff_id, no_in_party, sms_consent }
  * - Validates inputs
  * - Generates 6-char alphanumeric confirmation code
  * - Writes to database
- * - Sends confirmation email
  */
 
 header('Content-Type: application/json');
-require_once __DIR__ . '/../config.php';
-require_once __DIR__ . '/../mail.php';
+require_once __DIR__ . '/../src/php/config.php';
+require_once __DIR__ . '/../lib/sms.php';
+require_once __DIR__ . '/../lib/waitlist-hours.php';
+
+$tenant = requireTenant(true);
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
@@ -27,9 +29,11 @@ if (!$input) {
 }
 
 $name = trim($input['name'] ?? '');
-$email = trim($input['email'] ?? '');
-$staffId = (int)($input['staff_id'] ?? 0);
+$phone = preg_replace('/\D/', '', (string)($input['phone'] ?? ''));
+$anyStaff = ($input['staff_id'] ?? null) === 'any';
+$staffId = $anyStaff ? null : filter_var($input['staff_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
 $noInParty = (int)($input['no_in_party'] ?? 0);
+$smsConsent = filter_var($input['sms_consent'] ?? false, FILTER_VALIDATE_BOOLEAN);
 
 // Server-side validation
 $errors = [];
@@ -42,12 +46,16 @@ if ($noInParty < 1 || $noInParty > 10) {
     $errors[] = 'Party size must be between 1 and 10.';
 }
 
-if ($staffId <= 0) {
+if (!$anyStaff && !$staffId) {
     $errors[] = 'Please select a staff member.';
 }
 
-if (empty($email) || substr_count($email, '@') !== 1 || strpos($email, '.') === false) {
-    $errors[] = 'Please enter a valid email address.';
+if (strlen($phone) !== 10) {
+    $errors[] = 'Please enter a valid 10-digit phone number.';
+}
+
+if (!$smsConsent) {
+    $errors[] = 'Transactional and informational text message consent is required.';
 }
 
 if (!empty($errors)) {
@@ -56,18 +64,7 @@ if (!empty($errors)) {
     exit;
 }
 
-$db = getDB();
-
-// Verify staff exists
-$staffStmt = $db->prepare("SELECT id, goes_by FROM staff WHERE id = :id AND is_active = 1");
-$staffStmt->execute([':id' => $staffId]);
-$staff = $staffStmt->fetch();
-
-if (!$staff) {
-    http_response_code(400);
-    echo json_encode(['error' => 'Invalid staff member selected.']);
-    exit;
-}
+$db = getTenantDB();
 
 // Generate 6-character alphanumeric confirmation code
 function generateCode($length = 6) {
@@ -79,71 +76,94 @@ function generateCode($length = 6) {
     return $code;
 }
 
-$confirmationCode = generateCode();
-
-// Ensure code is unique
-$codeCheck = $db->prepare("SELECT COUNT(*) FROM clients WHERE confirmation_code = :code AND is_active = 1");
-$codeCheck->execute([':code' => $confirmationCode]);
-while ($codeCheck->fetchColumn() > 0) {
-    $confirmationCode = generateCode();
-    $codeCheck->execute([':code' => $confirmationCode]);
-}
-
-// Insert client
-$insertStmt = $db->prepare("
-    INSERT INTO clients (name, email, no_in_party, staff_id, confirmation_code)
-    VALUES (:name, :email, :no_in_party, :staff_id, :code)
-");
-
 try {
+    $db->beginTransaction();
+    lockWaitlistHours($db);
+    $dailyState = waitlistDailyState($db, waitlistNow());
+    if (!$dailyState['waitlist']['can_join']) {
+        $db->rollBack();
+        http_response_code(409);
+        echo json_encode(['error' => $dailyState['waitlist']['message']] + $dailyState);
+        exit;
+    }
+
+    if (!$anyStaff) {
+        $staffStmt = $db->prepare("SELECT id FROM staff WHERE id = :id AND is_active = 1 FOR UPDATE");
+        $staffStmt->execute([':id' => $staffId]);
+        $staff = $staffStmt->fetch();
+
+        if (!$staff) {
+            $db->rollBack();
+            http_response_code(400);
+            echo json_encode(['error' => 'Invalid staff member selected.']);
+            exit;
+        }
+        if (!in_array((int)$staffId, array_map('intval', array_column($dailyState['available_staff'], 'id')), true)) {
+            $db->rollBack();
+            http_response_code(409);
+            echo json_encode(['error' => 'This staff member is not available for the rest of this workday. Choose another staff member.'] + $dailyState);
+            exit;
+        }
+    }
+
+    $confirmationCode = generateCode();
+    $codeCheck = $db->prepare("SELECT COUNT(*) FROM clients WHERE confirmation_code = :code AND is_active = 1");
+    $codeCheck->execute([':code' => $confirmationCode]);
+    while ($codeCheck->fetchColumn() > 0) {
+        $confirmationCode = generateCode();
+        $codeCheck->execute([':code' => $confirmationCode]);
+    }
+
+    $insertStmt = $db->prepare("
+        INSERT INTO clients (
+            name,
+            phone,
+            no_in_party,
+            staff_id,
+            confirmation_code,
+            sms_consent,
+            sms_consent_at
+        )
+        VALUES (:name, :phone, :no_in_party, :staff_id, :code, 1, CURRENT_TIMESTAMP)
+    ");
     $insertStmt->execute([
         ':name' => $name,
-        ':email' => $email,
+        ':phone' => $phone,
         ':no_in_party' => $noInParty,
         ':staff_id' => $staffId,
         ':code' => $confirmationCode,
     ]);
-} catch (PDOException $e) {
+    $signupId = (int)$db->lastInsertId();
+    $db->commit();
+} catch (ClientQDatabaseException | RuntimeException $e) {
+    if ($db->inTransaction()) {
+        $db->rollBack();
+    }
+    clientqLog('ClientQ submit sign-in failed: ' . $e->getMessage());
     http_response_code(500);
     echo json_encode(['error' => 'Failed to save. Please try again.']);
     exit;
 }
 
-// Build removal link
-$protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-$host = $_SERVER['HTTP_HOST'] ?? 'localhost';
-$basePath = dirname(dirname($_SERVER['SCRIPT_NAME']));
-$removeLink = "$protocol://$host$basePath/remove";
-
-// Send confirmation email
-$subject = BUSINESS_NAME . " - Waitlist Confirmation";
-$message = "Hello $name,\n\n";
-$message .= "You have been added to the " . BUSINESS_NAME . " waitlist.\n\n";
-$message .= "Details:\n";
-$message .= "- Name: $name\n";
-$message .= "- No. in Party: $noInParty\n";
-$message .= "- Staff: {$staff['goes_by']}\n";
-$message .= "- Confirmation Code: $confirmationCode\n\n";
-$message .= "If you need to remove yourself from the waitlist, visit:\n";
-$message .= "$removeLink\n\n";
-$message .= "Use your confirmation code ($confirmationCode) and email to remove yourself.\n\n";
-$message .= "Thank you!\n" . BUSINESS_NAME;
-
-// Send confirmation email via SMTP
-$emailResult = sendEmail($email, $subject, $message);
-
-if (!$emailResult['success']) {
-    // Client is saved but email failed — still succeed but warn
-    echo json_encode([
-        'success' => true,
-        'message' => 'You have been added to the waitlist. (Email could not be sent: ' . $emailResult['error'] . ')',
-        'confirmation_code' => $confirmationCode,
-    ]);
-    exit;
+$smsSent = false;
+try {
+    $removalUrl = tenantUrl($tenant['slug'], '/remove?signup=' . $signupId);
+    sendTenantSms(
+        $tenant,
+        $phone,
+        "$name, you are on the {$tenant['name']} waitlist. Confirmation code: $confirmationCode. "
+        . "Delete this sign-up: $removalUrl\n"
+        . 'Reply STOP to opt out or HELP for help. Msg & data rates may apply.'
+    );
+    $smsSent = true;
+} catch (ClientQSmsException | ClientQDatabaseException $e) {
+    clientqLog('ClientQ sign-in confirmation SMS failed: ' . $e->getMessage());
 }
 
 echo json_encode([
     'success' => true,
-    'message' => 'You have been added to the waitlist. A confirmation email has been sent.',
+    'message' => 'You have been added to the waitlist.',
     'confirmation_code' => $confirmationCode,
+    'sms_sent' => $smsSent,
+    'sms_warning' => $smsSent ? null : 'Your sign-up was saved, but the confirmation text could not be sent.',
 ]);

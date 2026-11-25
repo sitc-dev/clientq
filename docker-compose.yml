@@ -1,0 +1,82 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8080:80"
+    environment:
+      CLIENTQ_DB_HOST: ${CLIENTQ_DB_HOST:-db}
+      CLIENTQ_DB_PORT: ${CLIENTQ_DB_PORT:-3306}
+      CLIENTQ_DB_NAME: ${CLIENTQ_DB_NAME:-clientq}
+      CLIENTQ_DB_USER: ${CLIENTQ_DB_USER:-clientq}
+      CLIENTQ_DB_PASS: ${CLIENTQ_DB_PASS:-myID411!220522}
+      CLIENTQ_BASE_DOMAIN: ${CLIENTQ_BASE_DOMAIN:-clientq.local}
+      CLIENTQ_SIGNUPS_PER_HOUR: ${CLIENTQ_SIGNUPS_PER_HOUR:-3}
+      CLIENTQ_DAILY_SIGNUP_LIMIT: ${CLIENTQ_DAILY_SIGNUP_LIMIT:-100}
+      CLIENTQ_STRIPE_SECRET_KEY: ${CLIENTQ_STRIPE_SECRET_KEY:-}
+      CLIENTQ_STRIPE_WEBHOOK_SECRET: ${CLIENTQ_STRIPE_WEBHOOK_SECRET:-}
+      CLIENTQ_STRIPE_API_BASE: ${CLIENTQ_STRIPE_API_BASE:-https://api.stripe.com/v1}
+      CLIENTQ_PAYPAL_ENVIRONMENT: ${CLIENTQ_PAYPAL_ENVIRONMENT:-sandbox}
+      CLIENTQ_PAYPAL_SANDBOX_CLIENT_ID: ${CLIENTQ_PAYPAL_SANDBOX_CLIENT_ID:-}
+      CLIENTQ_PAYPAL_SANDBOX_CLIENT_SECRET: ${CLIENTQ_PAYPAL_SANDBOX_CLIENT_SECRET:-}
+      CLIENTQ_PAYPAL_SANDBOX_PRODUCT_ID: ${CLIENTQ_PAYPAL_SANDBOX_PRODUCT_ID:-}
+      CLIENTQ_PAYPAL_SANDBOX_PLAN_ESSENTIALS: ${CLIENTQ_PAYPAL_SANDBOX_PLAN_ESSENTIALS:-}
+      CLIENTQ_PAYPAL_SANDBOX_PLAN_ESSENTIALS_APPOINTMENTS: ${CLIENTQ_PAYPAL_SANDBOX_PLAN_ESSENTIALS_APPOINTMENTS:-}
+      CLIENTQ_PAYPAL_SANDBOX_PLAN_SELECT: ${CLIENTQ_PAYPAL_SANDBOX_PLAN_SELECT:-}
+      CLIENTQ_PAYPAL_SANDBOX_PLAN_PREMIER: ${CLIENTQ_PAYPAL_SANDBOX_PLAN_PREMIER:-}
+      CLIENTQ_PAYPAL_LIVE_CLIENT_ID: ${CLIENTQ_PAYPAL_LIVE_CLIENT_ID:-}
+      CLIENTQ_PAYPAL_LIVE_CLIENT_SECRET: ${CLIENTQ_PAYPAL_LIVE_CLIENT_SECRET:-}
+      CLIENTQ_PAYPAL_LIVE_PRODUCT_ID: ${CLIENTQ_PAYPAL_LIVE_PRODUCT_ID:-}
+      CLIENTQ_PAYPAL_LIVE_PLAN_ESSENTIALS: ${CLIENTQ_PAYPAL_LIVE_PLAN_ESSENTIALS:-}
+      CLIENTQ_PAYPAL_LIVE_PLAN_ESSENTIALS_APPOINTMENTS: ${CLIENTQ_PAYPAL_LIVE_PLAN_ESSENTIALS_APPOINTMENTS:-}
+      CLIENTQ_PAYPAL_LIVE_PLAN_SELECT: ${CLIENTQ_PAYPAL_LIVE_PLAN_SELECT:-}
+      CLIENTQ_PAYPAL_LIVE_PLAN_PREMIER: ${CLIENTQ_PAYPAL_LIVE_PLAN_PREMIER:-}
+      CLIENTQ_TWILIO_ACCOUNT_SID: ${CLIENTQ_TWILIO_ACCOUNT_SID:-}
+      CLIENTQ_TWILIO_AUTH_TOKEN: ${CLIENTQ_TWILIO_AUTH_TOKEN:-}
+      CLIENTQ_TWILIO_API_BASE: ${CLIENTQ_TWILIO_API_BASE:-https://api.twilio.com/2010-04-01}
+      CLIENTQ_SMTP_HOST: ${CLIENTQ_SMTP_HOST:-}
+      CLIENTQ_SMTP_PORT: ${CLIENTQ_SMTP_PORT:-587}
+      CLIENTQ_SMTP_USER: ${CLIENTQ_SMTP_USER:-}
+      CLIENTQ_SMTP_PASS: ${CLIENTQ_SMTP_PASS:-}
+      CLIENTQ_LOG_DIR: /var/log/clientq
+      CLIENTQ_PENDING_UPLOAD_DIR: /var/lib/clientq/pending-uploads
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - clientq_uploads:/var/www/html/uploads
+      - ./logs:/var/log/clientq
+      - clientq_pending_uploads:/var/lib/clientq/pending-uploads
+
+  db:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: clientq
+      MYSQL_USER: clientq
+      MYSQL_PASSWORD: myID411!220522
+      MYSQL_ROOT_PASSWORD: myID411!220522
+    volumes:
+      - clientq_mysql:/var/lib/mysql
+      - ./database/platform-schema.sql:/docker-entrypoint-initdb.d/01-platform-schema.sql:ro
+      - ./docker/mysql/02-tenant-grants.sh:/docker-entrypoint-initdb.d/02-tenant-grants.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping --protocol=tcp -h 127.0.0.1 -P 3306 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  cloudbeaver:
+    image: dbeaver/cloudbeaver:latest
+    ports:
+      - "8978:8978"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    volumes:
+      - clientq_cloudbeaver:/opt/cloudbeaver/workspace
+
+volumes:
+  clientq_mysql:
+  clientq_uploads:
+  clientq_pending_uploads:
+  clientq_cloudbeaver:

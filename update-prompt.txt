@@ -1,0 +1,132 @@
+update staff portal to allow to add nickname for all tenant personnel though not required. update signin form to display nickname only if one were entered.
+
+write selenium script that signs up roadtest barbershop as a tenant on this
+server but with no logo, display roadtest's clientq waitlist in the browser,
+display roadtest's staff portal in the browser, give roadtest a tenant owner
+with staff portal login creds
+
+if tenant set as inactive, staff portal should show as inactive just like
+the waitlist
+
+update clientq owner profiles to list both link to tenant waitlist and link
+to tenant staff portal
+
+in tenant profile, ensure that links to waitlist and staff portal open in a
+different tab. ensure that inactive waitlist and staff portal indicate which
+is which on inactive pages
+
+on staff person profile, separate first name and last name, add an address
+textbox and random address for roadtest, city textbox and random city name
+for roadtest, and dropdown of 2-letter state acronym and random state for
+roadtest, phone number textbox that only allows 10 digits and formats at
+(xxx)xxx-xxxx, an email textbox and the login email address for roadtest
+
+on owner and emp profiles in staff portal, place position next to nickname and make experience a textarea, separate first and last name. upon entering new emp when owner logged into staff portal, remove password textbox but upon entering emp profile by owner, forward temp password email to emp, and upon first emp log into staff portal, require emp to set new password.
+
+no need for username to log into staff portal. owner and emps will use email
+address. no need to include experience for "Add Employee". emp can enter
+their own experience. add a means to upload profile pic, but users can only
+do it for themselves. owner will not enter profile pic either
+
+all log entries must indicate whether ERROR, INFO, WARNING
+
+update "Sign Up" to "Sign Up/Reservation Schedule" on waitlist page. add tabs to on this tab for
+for "Sign Up" and "Reservation Schedule". on reservation tab, show the dropdown of staff and
+show a calendar by which a client may choose a reservation date. if the date has slots, then
+display slots as radio buttons at 45min intervals from 8:30a to 5p by default. Only display
+slots not already reserved. if no slots available on this day, display "No reservations
+available on <date>". each staff member will have their own reservation schedule that they set
+up in the portal. default to allowing reservations up to two weeks out. 
+
+choose colors in the current theme and some type of CSS-created design in the background like a grid or checkerboard or gradient
+
+on signup confirmation page, remove "Tenant website" line. One "Sign Up" page, remove "ClientQ
+ddress" label and respective textbox
+
+go into the developer portal and create the products id for the payment plans. do this firefox instead of chrome
+
+how to config pay with credit/debit card
+
+produce QR codes with tenant logo or name and "ClientQ" underneath in the center.
+
+do the branded frame for tenants with no logo with business name on top and "Powered by ClientQ" on the bottom and put the logo in the center for tenants with logo and "Powered by ClientQ" on the bottom of the frame
+
+decrease the size of that gap on the top and the bottom. both lines should only be 6px from the
+QR code
+
+on confirmation-payment approved page, make certain buttons to open the waitlist and the portal open to different tabs from the tab displaying those button
+
+change "Any available staff" to "First available staff"
+
+turn the portal menu into a hamburger menu on smaller screens
+
+on the self-deletion page, there is no need to display where the client is in the daily waitlist
+or where they are in the overall list clients. The only place where a client's place in the
+queue matters is on the daily waitlist, placing that should adjust whenever a client is removed
+
+new tenants need to be assigned a phone number in the pool. that has be apart of the new tenant
+onboarding
+
+update upload script to be a date range and to make of a local and remote log entry of whether upload was successful or failed and upon successful upload provide an indented list of uploaded files
+
+Staff portal Updates
+1. New employee
+   -- Email address textbox for added employee*
+   -- Separate first and last name*
+   -- Add profile pic
+   -- Temp password sent requiring to reset password*
+   -- Can add address*
+   -- Set daily availability*
+2. Dashboard
+   -- Graph for daily visitors
+      --- Can change date span and search by weekly, monthly, etc.
+      --- Per employee
+3. Employee access
+   -- Update profile
+   -- Set schedule of available slots
+   -- Calendar view with clients
+   -- Can delete clients with confirmation
+      --- Text client
+   -- Can label a client as completed
+   -- Set daily availability
+      --- Only show name available that day
+   -- Available reservations
+   -- Every staff can see the entire waitlist and to whom those clients are assigned but they can only mark as complete those assigned to them.
+   -- Add "Mark as completed" button
+      --- Keep track to count of completed per staff.
+      
+4. Tenant owner
+   -- Pay through staff portal
+   -- See pdf invoices
+   -- Add note email sent
+   -- Make emp profiles read-only after initial setup
+   -- Can create accounts of varying privilege
+      --- Can change privileges in the app
+   -- Can delete or mark as complete any client 
+5. Plans
+   -- Appointment add-on
+   -- Appt role
+   -- Roku channel add-on
+   -- Send confirmation email/pdf
+ 6. Payment
+   -- Access, update delete credit card number
+ 7. Multi-factor authentication
+ 8. Open the queue at a certain time*
+   
+Platform admin
+1. Add note when changing active status.
+2. Dashboard
+   -- Bar chart appointments per staff member
+
+Main website
+1. Update pricing
+   All: Waitlist, Portal, text, messaging, pay thru portal, access invoices, pay thru site, 2 to 6, $39.99/mo
+   Next: Calendar scheduling and waitlist, growth for more employees, $64.99/mo
+   Top: 
+2. Update color
+3. Test payment
+
+Wait list
+1. "Wait time" to "Time waiting"
+
+      

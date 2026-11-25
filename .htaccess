@@ -1,0 +1,41 @@
+# Disable directory listing
+Options -Indexes
+
+# Enable rewrite engine
+RewriteEngine On
+
+# Application logs must never be served over HTTP.
+RewriteRule ^logs(?:/|$) - [F,L,NC]
+
+# Redirect direct requests for internally relocated root pages
+RewriteCond %{THE_REQUEST} \s/+[^?\s]+\.php[\s?] [NC]
+RewriteCond %{REQUEST_URI} ^/src/php/(.+)\.php$ [NC]
+RewriteRule ^ /%1 [R=301,L,NE]
+
+# Redirect .php URLs to clean URLs
+RewriteCond %{THE_REQUEST} \s/+[^?\s]+\.php[\s?] [NC]
+RewriteCond %{REQUEST_URI} ^/(.+)\.php$ [NC]
+RewriteRule ^ /%1 [R=301,L,NE]
+
+# Keep internal PHP source paths out of the public URL space
+RewriteCond %{THE_REQUEST} \s/+src/php(?:[/\s?]) [NC]
+RewriteRule ^src/php(?:/.*)?$ - [F,L]
+
+# Resolve clean root-level page URLs from src/php
+RewriteCond %{DOCUMENT_ROOT}/src/php/$1.php -f
+RewriteRule ^([^/]+)$ src/php/$1.php [L]
+
+# Preserve extensionless routing for APIs and nested applications
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_FILENAME}.php -f
+RewriteRule ^(.+)$ $1.php [L]
+
+<Files "stripe.php">
+    Require all denied
+</Files>
+<Files "paypal.php">
+    Require all denied
+</Files>
+<Files "stripe-billing.php">
+    Require all denied
+</Files>

@@ -1,0 +1,14 @@
+# Disable directory listing
+Options -Indexes
+
+# Enable rewrite engine
+RewriteEngine On
+
+# Redirect .php URLs to clean API URLs
+RewriteCond %{THE_REQUEST} \s/+api/[^?\s]+\.php[\s?] [NC]
+RewriteRule ^(.+)\.php$ /api/$1 [R=301,L,NE]
+
+# Remove .php extension for API endpoints
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_FILENAME}.php -f
+RewriteRule ^(.+)$ $1.php [L]

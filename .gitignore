@@ -1,0 +1,6 @@
+.env
+.playwright-mcp/
+.phpunit.cache/
+owner_credential.txt
+cloudbeaver_credential.txt
+logs/*.log

@@ -1,7 +1,6 @@
 <?php
 /**
- * Admin Dashboard - My Clients
- * Staff see their own clients. Owner sees their own clients.
+ * Admin Dashboard - Tenant Waitlist
  */
 require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/layout.php';
@@ -13,7 +12,7 @@ if (!$staff) {
     exit;
 }
 
-adminHeader('My Clients', $staff, 'dashboard');
+adminHeader('Waitlist', $staff, 'dashboard');
 ?>
 
         <!-- Success/Error Messages -->
@@ -25,7 +24,7 @@ adminHeader('My Clients', $staff, 'dashboard');
         </div>
 
         <!-- Client list container (loaded via AJAX) -->
-        <div id="clientListContainer">
+        <div id="clientListContainer" class="w-full">
             <div class="p-8 text-center text-gray-400">Loading...</div>
         </div>
 
@@ -48,6 +47,10 @@ adminHeader('My Clients', $staff, 'dashboard');
 
         <script>
             let deleteId = null;
+            let clientRequest = 0;
+            let clientsById = new Map();
+            const completingClients = new Set();
+            const completionToken = <?= json_encode(platformCsrfToken()) ?>;
 
             function escapeHtml(text) {
                 const d = document.createElement('div');
@@ -55,15 +58,47 @@ adminHeader('My Clients', $staff, 'dashboard');
                 return d.innerHTML;
             }
 
+            function formatPhone(phone) {
+                const digits = String(phone || '').replace(/\D/g, '');
+                return digits.length === 10
+                    ? `(${digits.substring(0, 3)})${digits.substring(3, 6)}-${digits.substring(6)}`
+                    : '';
+            }
+
+            function clientActions(client) {
+                return `${client.can_complete ? `
+                    <button type="button" data-client-action="complete" data-client-id="${client.id}"
+                        ${completingClients.has(Number(client.id)) ? 'disabled' : ''}
+                        class="rounded-lg bg-accent px-3 py-2 text-sm font-semibold text-white hover:bg-accentDark disabled:opacity-50">Mark as completed</button>` : ''}
+                    ${client.can_remove ? `
+                    <button type="button" data-client-action="remove" data-client-id="${client.id}"
+                        class="rounded-lg px-3 py-2 text-sm font-semibold text-red-600 hover:bg-red-50">Remove</button>` : ''}`;
+            }
+
             async function loadClients() {
+                const request = ++clientRequest;
                 try {
-                    const res = await fetch('api/get-clients');
+                    const params = new URLSearchParams({
+                        _: `${Date.now()}-${request}`,
+                        clear_cache: request === 1 ? '1' : '0'
+                    });
+                    const res = await fetch('api/get-clients?' + params, { cache: 'no-store' });
+                    if (!res.ok) {
+                        throw new Error(res.status === 401
+                            ? 'Your session expired. Please log in again.'
+                            : 'Unable to load clients. Retrying automatically.');
+                    }
                     const data = await res.json();
+                    if (request !== clientRequest) return;
+                    if (!data || data.success !== true || !Array.isArray(data.clients)) {
+                        throw new Error(data?.error || 'Invalid client list response. Retrying automatically.');
+                    }
                     const container = document.getElementById('clientListContainer');
                     const countDiv = document.getElementById('clientCount');
+                    clientsById = new Map(data.clients.map(client => [Number(client.id), client]));
 
-                    if (!data.clients || data.clients.length === 0) {
-                        container.innerHTML = '<div class="p-8 text-center text-gray-400"><p class="text-lg">No clients in your queue.</p></div>';
+                    if (data.clients.length === 0) {
+                        container.innerHTML = '<div class="p-8 text-center text-gray-400"><p class="text-lg">No clients waiting.</p></div>';
                         countDiv.classList.add('hidden');
                         return;
                     }
@@ -78,11 +113,12 @@ adminHeader('My Clients', $staff, 'dashboard');
                                     <tr>
                                         <th class="py-2 px-3 text-left w-10">#</th>
                                         <th class="py-2 px-3 text-left">Client</th>
-                                        <th class="py-2 px-3 text-left">Email</th>
+                                        <th class="py-2 px-3 text-left">Staff</th>
+                                        <th class="py-2 px-3 text-left">Phone</th>
                                         <th class="py-2 px-3 text-center">Party</th>
-                                        <th class="py-2 px-3 text-right">Wait Time</th>
+                                        <th class="py-2 px-3 text-right">Time waiting</th>
                                         <th class="py-2 px-3 text-center">Code</th>
-                                        <th class="py-2 px-3 text-center w-16"></th>
+                                        <th class="py-2 px-3 text-center">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -90,17 +126,13 @@ adminHeader('My Clients', $staff, 'dashboard');
                                     <tr class="border-b hover:bg-gray-50">
                                         <td class="py-3 px-3 text-gray-600">${i + 1}</td>
                                         <td class="py-3 px-3 font-medium">${escapeHtml(c.name)}</td>
-                                        <td class="py-3 px-3 text-gray-500">${escapeHtml(c.email)}</td>
+                                        <td class="py-3 px-3">${escapeHtml(c.staff_name)}</td>
+                                        <td class="py-3 px-3 text-gray-500">${formatPhone(c.phone)}</td>
                                         <td class="py-3 px-3 text-center">${c.no_in_party}</td>
                                         <td class="py-3 px-3 text-right font-mono">${c.wait_time}</td>
                                         <td class="py-3 px-3 text-center text-xs text-gray-400 font-mono">${c.confirmation_code}</td>
                                         <td class="py-3 px-3 text-center">
-                                            <button onclick="deleteClient(${c.id}, '${escapeHtml(c.name).replace(/'/g, "\\\\'")}')"
-                                                class="text-red-500 hover:text-red-700 hover:bg-red-50 p-1 rounded transition" title="Remove client">
-                                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                                                </svg>
-                                            </button>
+                                            <div class="flex flex-wrap justify-center gap-2">${clientActions(c)}</div>
                                         </td>
                                     </tr>`).join('')}
                                 </tbody>
@@ -116,24 +148,59 @@ adminHeader('My Clients', $staff, 'dashboard');
                                             <span class="font-semibold text-gray-800">${escapeHtml(c.name)}</span>
                                         </div>
                                         <div class="mt-1 ml-8 text-sm text-gray-500 space-y-0.5">
-                                            <p>${escapeHtml(c.email)}</p>
-                                            <p>Party: ${c.no_in_party} · Wait: <span class="font-mono">${c.wait_time}</span></p>
+                                            <p>Staff: ${escapeHtml(c.staff_name)}</p>
+                                            <p>${formatPhone(c.phone)}</p>
+                                            <p>Party: ${c.no_in_party} · Time waiting: <span class="font-mono">${c.wait_time}</span></p>
                                             <p class="text-xs text-gray-400">Code: ${c.confirmation_code}</p>
                                         </div>
                                     </div>
-                                    <button onclick="deleteClient(${c.id}, '${escapeHtml(c.name).replace(/'/g, "\\\\'")}')"
-                                        class="text-red-500 hover:text-red-700 hover:bg-red-50 p-2 rounded-lg transition" title="Remove client">
-                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                                        </svg>
-                                    </button>
                                 </div>
+                                <div class="mt-3 flex flex-wrap gap-2">${clientActions(c)}</div>
                             </div>`).join('')}
                         </div>`;
                 } catch (e) {
+                    if (request !== clientRequest) return;
                     console.error('Failed to load clients:', e);
+                    const container = document.getElementById('clientListContainer');
+                    container.innerHTML = '<div role="alert" class="p-8 text-center text-red-600"></div>';
+                    container.firstElementChild.textContent = e.message || 'Unable to load clients. Retrying automatically.';
+                    document.getElementById('clientCount').classList.add('hidden');
+                    document.getElementById('countNum').textContent = '';
                 }
             }
+
+            document.getElementById('clientListContainer').addEventListener('click', async event => {
+                const button = event.target.closest('button[data-client-action]');
+                if (!button) return;
+                const id = Number(button.dataset.clientId);
+                const client = clientsById.get(id);
+                if (!client) return;
+                if (button.dataset.clientAction === 'remove') {
+                    deleteClient(id, client.name);
+                    return;
+                }
+                if (completingClients.has(id)) return;
+                completingClients.add(id);
+                button.disabled = true;
+                try {
+                    const response = await fetch('api/complete-client', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ client_id: id, csrf_token: completionToken })
+                    });
+                    const data = await response.json();
+                    if (!response.ok || !data.success) throw new Error(data.error || 'The client could not be marked as completed.');
+                    showMessage('Client marked as completed.', 'green');
+                    await loadClients();
+                } catch (error) {
+                    console.error('Client completion failed:', error);
+                    showMessage(error.message || 'The client could not be marked as completed.', 'red');
+                } finally {
+                    completingClients.delete(id);
+                    document.querySelectorAll(`button[data-client-action="complete"][data-client-id="${id}"]`)
+                        .forEach(action => { action.disabled = false; });
+                }
+            });
 
             function deleteClient(id, name) {
                 deleteId = id;
@@ -152,7 +219,7 @@ adminHeader('My Clients', $staff, 'dashboard');
                     const res = await fetch('api/delete-client', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ client_id: deleteId })
+                        body: JSON.stringify({ client_id: deleteId, csrf_token: completionToken })
                     });
                     const data = await res.json();
                     closeDeleteModal();

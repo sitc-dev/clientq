@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/11.0/phpunit.xsd"
+         colors="true"
+         cacheDirectory=".phpunit.cache">
+    <testsuites>
+        <testsuite name="Unit">
+            <directory>tests</directory>
+            <exclude>tests/Console</exclude>
+            <exclude>tests/integration</exclude>
+        </testsuite>
+        <testsuite name="Integration">
+            <directory>tests/integration</directory>
+        </testsuite>
+    </testsuites>
+    <extensions>
+        <bootstrap class="ClientQ\Tests\Console\ConsoleTestReporterExtension"/>
+    </extensions>
+</phpunit>
